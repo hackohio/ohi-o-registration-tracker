@@ -1,0 +1,19 @@
+[qualtrics]
+base_url = "https://pdx1.qualtrics.com/API/v3"
+
+[events.hack]
+name = "HackOHI/O"
+event_date = 2026-10-24
+timezone = "America/New_York"
+
+participant_survey_id = "SV_8zR0UTA9RgmEnH0"
+participant_quota_id = "QO_560gfvH0mTFMetw"
+leader_survey_id = "..."
+leader_quota_id = "..."
+
+[events.hack.history]
+label = "2025"
+event_date = 2025-10-26
+participants_input = "private/hack25participants.csv"
+leaders_input = "private/hack2025leaders.csv"
+aggregate_output = "history/hack-2025.csv"

@@ -1,0 +1,8 @@
+config.ini
+.env
+.venv/
+__pycache__/
+private/
+artifacts/
+MyQualtricsDownload/
+*.pyc
