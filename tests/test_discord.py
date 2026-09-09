@@ -39,6 +39,7 @@ class DiscordTests(unittest.TestCase):
         _, request = session.calls[0]
         payload = json.loads(request["data"]["payload_json"])
         self.assertEqual(payload["content"], "\n".join([
+            "────────────────",
             "**__12__ Days Before Test event**",
             "- **Participants**: 42 (_last year: 37_)",
             "- **Mentor/Judge**: 18 (_last year: 15_)",
