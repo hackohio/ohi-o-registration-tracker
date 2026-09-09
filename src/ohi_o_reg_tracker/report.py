@@ -1,9 +1,12 @@
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+import logging
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 from . import charts, qualtrics
 from .registrations import load_aggregate, timeline
+
+logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class Report:
@@ -31,16 +34,24 @@ def build(settings, *, today=None, session=None):
     event = settings.event; today = today or datetime.now(ZoneInfo(event.timezone)).date()
     if today > event.event_date: raise ValueError(f"{event.key}: event has ended")
     point = (event.event_date - today).days
+    logger.info("Building report for %s (%d days before event)", event.key, point)
     historical = load_aggregate(event.history.aggregate_output)
     historical_values = historical.get(point, ("Reg was not open", "Reg was not open"))
+    logger.info("Requesting Qualtrics registration exports")
     participants_dates, leaders_dates = _run_parallel([
         lambda: qualtrics.export_end_dates(event.participant_survey_id, base_url=settings.base_url, api_key=settings.api_key, timezone=event.timezone, session=session),
         lambda: qualtrics.export_end_dates(event.leader_survey_id, base_url=settings.base_url, api_key=settings.api_key, timezone=event.timezone, session=session),
     ], session=session)
     participants = timeline(participants_dates, event.event_date, event.timezone, today=today)
     leaders = timeline(leaders_dates, event.event_date, event.timezone, today=today)
+    logger.info("Registration timelines built")
+    logger.info("Requesting authoritative quota counts")
     participant_count, leader_count = _run_parallel([
         lambda: qualtrics.get_quota_count(event.participant_survey_id, event.participant_quota_id, base_url=settings.base_url, api_key=settings.api_key, session=session),
         lambda: qualtrics.get_quota_count(event.leader_survey_id, event.leader_quota_id, base_url=settings.base_url, api_key=settings.api_key, session=session),
     ], session=session)
-    return Report(event.name, event.event_date, point, datetime.now(ZoneInfo(event.timezone)), participant_count, leader_count, *historical_values, event.history.label, charts.make_chart(participants, leaders, historical, comparison_label=event.history.label, today_days_before=point))
+    logger.info("Quota counts received: participants=%d, leaders=%d", participant_count, leader_count)
+    logger.info("Rendering registration chart")
+    chart = charts.make_chart(participants, leaders, historical, comparison_label=event.history.label, today_days_before=point)
+    logger.info("Report ready")
+    return Report(event.name, event.event_date, point, datetime.now(ZoneInfo(event.timezone)), participant_count, leader_count, *historical_values, event.history.label, chart)

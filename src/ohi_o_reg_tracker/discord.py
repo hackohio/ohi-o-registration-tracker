@@ -1,10 +1,14 @@
 import json
+import logging
 import time
 
 import requests
 
+logger = logging.getLogger(__name__)
+
 
 def send(report, webhook_url, *, session=None):
+    logger.info("Sending report to Discord")
     session = session or requests.Session()
     content = "\n".join(
         [
@@ -34,3 +38,4 @@ def send(report, webhook_url, *, session=None):
             timeout=(10, 30),
         )
     response.raise_for_status()
+    logger.info("Discord report sent")

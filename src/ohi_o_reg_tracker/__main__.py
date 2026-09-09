@@ -1,4 +1,4 @@
-import argparse, csv, sys
+import argparse, csv, logging, sys
 from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -8,6 +8,7 @@ from .report import build
 from . import charts, discord, qualtrics
 
 def main(argv=None):
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(prog="ohi_o_reg_tracker"); sub = parser.add_subparsers(dest="command", required=True)
     for name in ("check", "build-history", "preview-participants", "report"):
         p = sub.add_parser(name); p.add_argument("--event", required=True)

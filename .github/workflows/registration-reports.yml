@@ -20,7 +20,14 @@ jobs:
       QUALTRICS_API_KEY: ${{ secrets.QUALTRICS_API_KEY }}
       DISCORD_WEBHOOK_URL: ${{ secrets[matrix.webhook_secret] }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - run: uv sync --locked
-      - run: uv run python -m ohi_o_reg_tracker report --event "${{ matrix.event }}"
+      - name: Check out repository
+        uses: actions/checkout@v5
+      - name: Set up uv and restore dependency cache
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Send registration report
+        run: uv run python -m ohi_o_reg_tracker report --event "${{ matrix.event }}"
