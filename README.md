@@ -1,4 +1,4 @@
-# OHI/O registration tracker
+# OHI/O Registration Tracker
 
 ## Setup
 
