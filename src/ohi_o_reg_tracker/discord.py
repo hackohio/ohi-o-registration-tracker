@@ -15,6 +15,7 @@ def send(report, webhook_url, *, session=None):
             f"**__{report.days_before}__ Days Before {report.event_name}**",
             f"- **Participants**: {report.participants} (_last year: {report.historical_participants}_)",
             f"- **Mentor/Judge**: {report.leaders} (_last year: {report.historical_leaders}_)",
+            "────────────────",
         ]
     )
     payload = {"content": content}

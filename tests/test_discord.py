@@ -42,6 +42,7 @@ class DiscordTests(unittest.TestCase):
             "**__12__ Days Before Test event**",
             "- **Participants**: 42 (_last year: 37_)",
             "- **Mentor/Judge**: 18 (_last year: 15_)",
+            "────────────────",
         ]))
         self.assertNotIn("embeds", payload)
         self.assertEqual(request["files"]["file"], ("registration.png", b"png", "image/png"))
