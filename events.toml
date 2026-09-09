@@ -8,8 +8,8 @@ timezone = "America/New_York"
 
 participant_survey_id = "SV_8zR0UTA9RgmEnH0"
 participant_quota_id = "QO_560gfvH0mTFMetw"
-leader_survey_id = "..."
-leader_quota_id = "..."
+leader_survey_id = "SV_cu6KBGCUWxln5DE"
+leader_quota_id = "QO_qzD2ID9xE385Bx7"
 
 [events.hack.history]
 label = "2025"

@@ -1,13 +1,36 @@
+import json
 import time
+
 import requests
+
 
 def send(report, webhook_url, *, session=None):
     session = session or requests.Session()
-    payload = {"embeds": [{"title": report.event_name, "description": f"{report.days_before} days before the event", "fields": [{"name": "Participants", "value": f"{report.participants} (last year: {report.historical_participants})", "inline": True}, {"name": "Mentor/Judge", "value": f"{report.leaders} (last year: {report.historical_leaders})", "inline": True}], "image": {"url": "attachment://registration.png"}, "footer": {"text": f"Updated {report.updated_at.isoformat()}"}}]}
-    response = session.post(webhook_url, data={"payload_json": __import__("json").dumps(payload)}, files={"file": ("registration.png", report.png, "image/png")}, timeout=(10, 30))
+    content = "\n".join(
+        [
+            f"**__{report.days_before}__ Days Before {report.event_name}**",
+            f"- **Participants**: {report.participants} (_last year: {report.historical_participants}_)",
+            f"- **Mentor/Judge**: {report.leaders} (_last year: {report.historical_leaders}_)",
+        ]
+    )
+    payload = {"content": content}
+    files = {"file": ("registration.png", report.png, "image/png")}
+    response = session.post(
+        webhook_url,
+        data={"payload_json": json.dumps(payload)},
+        files=files,
+        timeout=(10, 30),
+    )
     if response.status_code == 429:
-        try: delay = min(float(response.json().get("retry_after", 1)), 30)
-        except (ValueError, TypeError): delay = 1
+        try:
+            delay = min(float(response.json().get("retry_after", 1)), 30)
+        except (ValueError, TypeError):
+            delay = 1
         time.sleep(delay)
-        response = session.post(webhook_url, data={"payload_json": __import__("json").dumps(payload)}, files={"file": ("registration.png", report.png, "image/png")}, timeout=(10, 30))
+        response = session.post(
+            webhook_url,
+            data={"payload_json": json.dumps(payload)},
+            files=files,
+            timeout=(10, 30),
+        )
     response.raise_for_status()
