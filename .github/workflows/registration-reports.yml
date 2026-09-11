@@ -1,8 +1,7 @@
 name: Registration reports
 on:
-  schedule:
-    - cron: '7 9,20 * * *'
-      timezone: America/New_York
+  repository_dispatch:
+    types: [registration-report]
   workflow_dispatch:
 permissions:
   contents: read
