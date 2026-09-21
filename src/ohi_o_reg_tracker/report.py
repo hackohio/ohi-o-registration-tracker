@@ -4,7 +4,7 @@ import logging
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 from . import charts, qualtrics
-from .registrations import load_aggregate, timeline
+from .registrations import load_aggregate, load_participant_aggregate, timeline
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,13 @@ def build(settings, *, today=None, session=None):
     point = (event.event_date - today).days
     logger.info("Building report for %s (%d days before event)", event.key, point)
     historical = load_aggregate(event.history.aggregate_output)
+    participant_histories = {
+        event.history.label: {day: values[0] for day, values in historical.items()}
+    }
+    participant_histories.update({
+        label: load_participant_aggregate(path)
+        for label, path in getattr(event.history, "participant_trends", ())
+    })
     historical_values = historical.get(point, ("Reg was not open", "Reg was not open"))
     logger.info("Requesting Qualtrics registration exports")
     participants_dates, leaders_dates = _run_parallel([
@@ -52,6 +59,13 @@ def build(settings, *, today=None, session=None):
     ], session=session)
     logger.info("Quota counts received: participants=%d, leaders=%d", participant_count, leader_count)
     logger.info("Rendering registration chart")
-    chart = charts.make_chart(participants, leaders, historical, comparison_label=event.history.label, today_days_before=point)
+    chart = charts.make_chart(
+        participants,
+        leaders,
+        historical,
+        comparison_label=event.history.label,
+        today_days_before=point,
+        participant_histories=participant_histories,
+    )
     logger.info("Report ready")
     return Report(event.name, event.event_date, point, datetime.now(ZoneInfo(event.timezone)), participant_count, leader_count, *historical_values, event.history.label, chart)

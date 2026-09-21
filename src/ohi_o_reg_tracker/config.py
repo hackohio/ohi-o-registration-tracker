@@ -20,6 +20,7 @@ class History:
     participants_input: Path
     leaders_input: Path
     aggregate_output: Path
+    participant_trends: tuple[tuple[str, Path], ...] = ()
 
 @dataclass(frozen=True)
 class Event:
@@ -53,7 +54,11 @@ def load_events(path="events.toml"):
     for key, value in raw.get("events", {}).items():
         try:
             h = value["history"]
-            history = History(h["label"], _date(h["event_date"], "history.event_date"), Path(h["participants_input"]), Path(h["leaders_input"]), Path(h["aggregate_output"]))
+            participant_trends = tuple(
+                (trend["label"], Path(trend["aggregate_output"]))
+                for trend in h.get("participant_trends", [])
+            )
+            history = History(h["label"], _date(h["event_date"], "history.event_date"), Path(h["participants_input"]), Path(h["leaders_input"]), Path(h["aggregate_output"]), participant_trends)
             event = Event(key, value["name"], _date(value["event_date"], "event_date"), value["timezone"], value["participant_survey_id"], value["participant_quota_id"], value["leader_survey_id"], value["leader_quota_id"], history)
             ZoneInfo(event.timezone)
         except (KeyError, TypeError, ZoneInfoNotFoundError) as e:
@@ -79,8 +84,13 @@ def settings_for(key, *, path="events.toml", require_credentials=True, today=Non
         errors.append(f"missing aggregate: {event.history.aggregate_output}")
     else:
         try:
-            from .registrations import load_aggregate
+            from .registrations import load_aggregate, load_participant_aggregate
             load_aggregate(event.history.aggregate_output)
+            for _, path in event.history.participant_trends:
+                if not path.is_file():
+                    errors.append(f"missing participant trend: {path}")
+                else:
+                    load_participant_aggregate(path)
         except ValueError as e:
             errors.append(str(e))
     if require_credentials:

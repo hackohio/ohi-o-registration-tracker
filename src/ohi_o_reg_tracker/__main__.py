@@ -3,7 +3,7 @@ from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from .config import load_events, settings_for, validate_history
-from .registrations import load_aggregate, read_end_dates, timeline, write_aggregate
+from .registrations import load_aggregate, load_participant_aggregate, read_end_dates, timeline, write_aggregate
 from .report import build
 from . import charts, discord, qualtrics
 
@@ -31,7 +31,22 @@ def main(argv=None):
             current = timeline(dates, event.event_date, event.timezone, today=today)
             count = qualtrics.get_quota_count(event.participant_survey_id, event.participant_quota_id, base_url=settings.base_url, api_key=settings.api_key)
             output = Path("artifacts") / f"{args.event}-participants.png"; output.parent.mkdir(exist_ok=True)
-            output.write_bytes(charts.make_chart(current, None, load_aggregate(event.history.aggregate_output), comparison_label=event.history.label, today_days_before=(event.event_date - today).days))
+            historical = load_aggregate(event.history.aggregate_output)
+            participant_histories = {
+                event.history.label: {day: values[0] for day, values in historical.items()}
+            }
+            participant_histories.update({
+                label: load_participant_aggregate(path)
+                for label, path in getattr(event.history, "participant_trends", ())
+            })
+            output.write_bytes(charts.make_chart(
+                current,
+                None,
+                historical,
+                comparison_label=event.history.label,
+                today_days_before=(event.event_date - today).days,
+                participant_histories=participant_histories,
+            ))
             print(f"Participants: {count}; exported responses: {len(dates)}; chart: {output}"); return 0
         result = build(settings)
         if args.dry_run:

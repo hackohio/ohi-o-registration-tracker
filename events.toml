@@ -17,3 +17,7 @@ event_date = 2025-10-26
 participants_input = "private/hack25participants.csv"
 leaders_input = "private/hack2025leaders.csv"
 aggregate_output = "history/hack-2025.csv"
+
+[[events.hack.history.participant_trends]]
+label = "2024"
+aggregate_output = "history/hack-2024-participants.csv"

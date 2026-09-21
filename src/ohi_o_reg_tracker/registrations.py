@@ -40,18 +40,34 @@ def timeline(timestamps, event_date, timezone, today=None):
         day += timedelta(days=1)
     return dict(sorted(result.items(), reverse=True))
 
-def load_aggregate(path):
+def _load_series(path, columns):
     path = Path(path)
     with path.open(newline="", encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
-    if not rows or list(rows[0].keys()) != ["days_before", "participants", "leaders"]: raise ValueError(f"{path}: invalid header")
-    try: data = [(int(r["days_before"]), int(r["participants"]), int(r["leaders"])) for r in rows]
-    except (KeyError, ValueError) as e: raise ValueError(f"{path}: invalid aggregate values") from e
-    days = [r[0] for r in data]
-    if days[-1] != 0 or len(set(days)) != len(days) or days != list(range(days[0], -1, -1)): raise ValueError(f"{path}: days_before must be contiguous and end at 0")
-    if any(p < 0 or l < 0 for _, p, l in data): raise ValueError(f"{path}: counts cannot be negative")
-    if any(data[i][1] > data[i+1][1] or data[i][2] > data[i+1][2] for i in range(len(data)-1)): raise ValueError(f"{path}: counts must not decrease toward event day")
-    return {d: (p, l) for d, p, l in data}
+        reader = csv.DictReader(f)
+        if reader.fieldnames != ["days_before", *columns]:
+            raise ValueError(f"{path}: invalid header")
+        try:
+            rows = [(int(row["days_before"]), *(int(row[column]) for column in columns)) for row in reader]
+        except (KeyError, TypeError, ValueError) as e:
+            raise ValueError(f"{path}: invalid aggregate values") from e
+    if not rows:
+        raise ValueError(f"{path}: aggregate is empty")
+    days = [row[0] for row in rows]
+    if days[-1] != 0 or len(set(days)) != len(days) or days != list(range(days[0], -1, -1)):
+        raise ValueError(f"{path}: days_before must be contiguous and end at 0")
+    if any(any(value < 0 for value in row[1:]) for row in rows):
+        raise ValueError(f"{path}: counts cannot be negative")
+    if any(rows[i][j] > rows[i + 1][j] for i in range(len(rows) - 1) for j in range(1, len(columns) + 1)):
+        raise ValueError(f"{path}: counts must not decrease toward event day")
+    return rows
+
+
+def load_aggregate(path):
+    return {row[0]: (row[1], row[2]) for row in _load_series(path, ("participants", "leaders"))}
+
+
+def load_participant_aggregate(path):
+    return {row[0]: row[1] for row in _load_series(path, ("participants",))}
 
 def write_aggregate(path, participants, leaders):
     days = sorted(set(participants) | set(leaders), reverse=True)
