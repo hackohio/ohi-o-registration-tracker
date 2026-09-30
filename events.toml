@@ -7,9 +7,9 @@ event_date = 2026-10-24
 timezone = "America/New_York"
 
 participant_survey_id = "SV_8zR0UTA9RgmEnH0"
-participant_quota_id = "QO_560gfvH0mTFMetw"
+professional_survey_id = "SV_29LPFsT2mjRtsMe"
+marion_quota_id = "QO_lv4lRthwrF55UBH"
 leader_survey_id = "SV_cu6KBGCUWxln5DE"
-leader_quota_id = "QO_qzD2ID9xE385Bx7"
 
 [events.hack.history]
 label = "2025"

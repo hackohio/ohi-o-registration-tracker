@@ -1,4 +1,5 @@
 import argparse, csv, logging, sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -6,6 +7,11 @@ from .config import load_events, settings_for, validate_history
 from .registrations import load_aggregate, load_participant_aggregate, read_end_dates, timeline, write_aggregate
 from .report import build
 from . import charts, discord, qualtrics
+
+def _run_parallel(calls):
+    with ThreadPoolExecutor(max_workers=len(calls)) as executor:
+        futures = [executor.submit(call) for call in calls]
+        return [future.result() for future in futures]
 
 def main(argv=None):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -27,9 +33,37 @@ def main(argv=None):
         if args.command == "check": print(f"{args.event}: ready"); return 0
         if args.command == "preview-participants":
             today = datetime.now(ZoneInfo(event.timezone)).date()
-            dates = qualtrics.export_end_dates(event.participant_survey_id, base_url=settings.base_url, api_key=settings.api_key, timezone=event.timezone)
-            current = timeline(dates, event.event_date, event.timezone, today=today)
-            count = qualtrics.get_quota_count(event.participant_survey_id, event.participant_quota_id, base_url=settings.base_url, api_key=settings.api_key)
+            has_professional_counts = event.professional_survey_id is not None
+            export_calls = [
+                lambda: qualtrics.export_end_dates(event.participant_survey_id, base_url=settings.base_url, api_key=settings.api_key, timezone=event.timezone),
+            ]
+            if has_professional_counts:
+                export_calls.append(
+                    lambda: qualtrics.export_end_dates(event.professional_survey_id, base_url=settings.base_url, api_key=settings.api_key, timezone=event.timezone)
+                )
+            export_results = _run_parallel(export_calls)
+            dates = export_results[0]
+            if has_professional_counts:
+                professionals_dates = export_results[1]
+                participant_timestamps = [*dates, *professionals_dates]
+            else:
+                professionals_dates = []
+                participant_timestamps = dates
+            current = timeline(participant_timestamps, event.event_date, event.timezone, today=today)
+            if has_professional_counts:
+                professional_current = timeline(
+                    professionals_dates, event.event_date, event.timezone, today=today
+                ).get((event.event_date - today).days, 0)
+                marion_count = qualtrics.get_quota_count(
+                    event.participant_survey_id,
+                    event.marion_quota_id,
+                    base_url=settings.base_url,
+                    api_key=settings.api_key,
+                )
+            else:
+                professional_current = None
+                marion_count = None
+            participant_count = current.get((event.event_date - today).days, 0)
             output = Path("artifacts") / f"{args.event}-participants.png"; output.parent.mkdir(exist_ok=True)
             historical = load_aggregate(event.history.aggregate_output)
             participant_histories = {
@@ -47,11 +81,13 @@ def main(argv=None):
                 today_days_before=(event.event_date - today).days,
                 participant_histories=participant_histories,
             ))
-            print(f"Participants: {count}; exported responses: {len(dates)}; chart: {output}"); return 0
+            breakdown = f"; Marion: {marion_count}; Professional: {professional_current}" if has_professional_counts else ""
+            print(f"Participants: {participant_count}{breakdown}; exported responses: {len(participant_timestamps)}; chart: {output}"); return 0
         result = build(settings)
         if args.dry_run:
             output = Path("artifacts") / f"{args.event}.png"; output.parent.mkdir(exist_ok=True); output.write_bytes(result.png)
-            print(f"{result.days_before} days before {result.event_name}; Participants: {result.participants} (last year: {result.historical_participants}); Mentor/Judge: {result.leaders} (last year: {result.historical_leaders}); chart: {output}")
+            breakdown = f"; Marion: {result.marion}; Professional: {result.professionals}" if result.marion is not None and result.professionals is not None else ""
+            print(f"{result.days_before} days before {result.event_name}; Participants: {result.participants} (last year: {result.historical_participants}){breakdown}; Mentor/Judge: {result.leaders} (last year: {result.historical_leaders}); chart: {output}")
         else: discord.send(result, settings.webhook_url)
         return 0
     except Exception as error:
