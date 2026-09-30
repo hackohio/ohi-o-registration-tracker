@@ -35,10 +35,11 @@ def _request(session, method, url, **kwargs):
     return response
 
 def export_end_dates(survey_id, *, base_url, api_key, timezone="UTC", session=None, poll_interval=1, deadline=120):
+    """Export EndDate values for finished responses only."""
     logger.info("Starting Qualtrics response export")
     session = session or requests.Session(); headers = {"X-API-TOKEN": api_key, "Accept": "application/json"}
     root = base_url.rstrip("/") + f"/surveys/{survey_id}/export-responses"
-    body = {"format": "csv", "compress": True, "surveyMetadataIds": ["endDate"], "questionIds": [], "embeddedDataIds": [], "timeZone": timezone}
+    body = {"format": "csv", "compress": True, "exportResponsesInProgress": False, "surveyMetadataIds": ["endDate", "finished"], "questionIds": [], "embeddedDataIds": [], "timeZone": timezone}
     response = _request(session, "POST", root, headers=headers, json=body, timeout=(10, 30))
     data = _json(response).get("result", {})
     progress_id = data.get("progressId")
@@ -70,15 +71,36 @@ def export_end_dates(survey_id, *, base_url, api_key, timezone="UTC", session=No
     csv_names = [n for n in archive.namelist() if n.lower().endswith(".csv")]
     if len(csv_names) != 1: raise QualtricsError("Qualtrics ZIP must contain one CSV")
     rows = list(csv.reader(io.StringIO(archive.read(csv_names[0]).decode("utf-8-sig"))))
-    if not rows or rows[0] != ["EndDate"]: raise QualtricsError("export CSV must contain only EndDate")
+    if (
+        not rows
+        or len(rows[0]) != 2
+        or rows[0][0] != "EndDate"
+        or rows[0][1].casefold() != "finished"
+    ):
+        raise QualtricsError("export CSV must contain EndDate and Finished columns")
     data_start = 1
-    if len(rows) > 1 and len(rows[1]) == 1 and rows[1][0].startswith("End Date"): data_start = 2
-    if len(rows) > data_start:
-        try: metadata = json.loads(rows[data_start][0])
-        except (json.JSONDecodeError, TypeError): metadata = None
-        if isinstance(metadata, dict) and metadata.get("ImportId") == "endDate": data_start += 1
-    if any(len(row) != 1 or not row[0] for row in rows[data_start:]): raise QualtricsError("export contains an invalid EndDate row")
-    result = [row[0] for row in rows[data_start:]]
+    if len(rows) > 1 and len(rows[1]) == 2 and rows[1][0].startswith("End Date"):
+        data_start = 2
+    if len(rows) > data_start and len(rows[data_start]) == 2:
+        metadata = []
+        for cell in rows[data_start]:
+            try: metadata.append(json.loads(cell))
+            except (json.JSONDecodeError, TypeError): metadata.append(None)
+        if all(isinstance(value, dict) for value in metadata):
+            import_ids = [value.get("ImportId") for value in metadata]
+            if import_ids != ["endDate", "finished"]:
+                raise QualtricsError("export CSV metadata does not match EndDate and Finished")
+            data_start += 1
+    result = []
+    for row in rows[data_start:]:
+        if len(row) != 2:
+            raise QualtricsError("export contains an invalid EndDate/Finished row")
+        finished = row[1].strip().casefold()
+        if finished in {"1", "true"}:
+            if not row[0]: raise QualtricsError("finished response lacks an EndDate")
+            result.append(row[0])
+        elif finished not in {"0", "false"}:
+            raise QualtricsError("export contains an invalid Finished value")
     logger.info("Parsed %d registration timestamps from Qualtrics", len(result))
     return result
 

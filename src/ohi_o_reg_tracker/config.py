@@ -29,10 +29,10 @@ class Event:
     event_date: date
     timezone: str
     participant_survey_id: str
-    participant_quota_id: str
     leader_survey_id: str
-    leader_quota_id: str
     history: History
+    professional_survey_id: str | None = None
+    marion_quota_id: str | None = None
 
 @dataclass(frozen=True)
 class Settings:
@@ -59,7 +59,17 @@ def load_events(path="events.toml"):
                 for trend in h.get("participant_trends", [])
             )
             history = History(h["label"], _date(h["event_date"], "history.event_date"), Path(h["participants_input"]), Path(h["leaders_input"]), Path(h["aggregate_output"]), participant_trends)
-            event = Event(key, value["name"], _date(value["event_date"], "event_date"), value["timezone"], value["participant_survey_id"], value["participant_quota_id"], value["leader_survey_id"], value["leader_quota_id"], history)
+            event = Event(
+                key=key,
+                name=value["name"],
+                event_date=_date(value["event_date"], "event_date"),
+                timezone=value["timezone"],
+                participant_survey_id=value["participant_survey_id"],
+                leader_survey_id=value["leader_survey_id"],
+                history=history,
+                professional_survey_id=value.get("professional_survey_id"),
+                marion_quota_id=value.get("marion_quota_id"),
+            )
             ZoneInfo(event.timezone)
         except (KeyError, TypeError, ZoneInfoNotFoundError) as e:
             raise ValueError(f"invalid event {key}: {e}") from e
@@ -74,11 +84,27 @@ def settings_for(key, *, path="events.toml", require_credentials=True, today=Non
     errors = []
     for name in ("name", "event_date", "timezone"):
         if not getattr(event, name): errors.append(f"{name} is required")
-    ids = (("participant_survey_id", "SV"), ("participant_quota_id", "QO"))
-    if not participant_only: ids += (("leader_survey_id", "SV"), ("leader_quota_id", "QO"))
+    professional_fields = (
+        ("professional_survey_id", "SV"),
+        ("marion_quota_id", "QO"),
+    )
+    configured_professional_fields = [
+        getattr(event, name) is not None for name, _ in professional_fields
+    ]
+    if any(configured_professional_fields) and not all(configured_professional_fields):
+        errors.append("professional_survey_id and marion_quota_id must be configured together")
+    ids = [("participant_survey_id", "SV")]
+    if not participant_only:
+        ids.append(("leader_survey_id", "SV"))
     for name, prefix in ids:
-        if not re.fullmatch(fr"{prefix}_[A-Za-z0-9]+", getattr(event, name)):
+        value = getattr(event, name)
+        if not isinstance(value, str) or not re.fullmatch(fr"{prefix}_[A-Za-z0-9]+", value):
             errors.append(f"{name} must be a valid {prefix}_ ID")
+    if all(configured_professional_fields):
+        for name, prefix in professional_fields:
+            value = getattr(event, name)
+            if not isinstance(value, str) or not re.fullmatch(fr"{prefix}_[A-Za-z0-9]+", value):
+                errors.append(f"{name} must be a valid {prefix}_ ID")
     if event.event_date < today: errors.append("event_date is in the past")
     if not event.history.aggregate_output.is_file():
         errors.append(f"missing aggregate: {event.history.aggregate_output}")

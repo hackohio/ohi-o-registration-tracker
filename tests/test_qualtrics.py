@@ -23,10 +23,18 @@ class Session:
 
 
 class QualtricsTests(unittest.TestCase):
-    def test_exports_only_end_date_in_event_timezone(self):
+    def test_exports_only_finished_end_dates_in_event_timezone(self):
         output = io.BytesIO()
         with zipfile.ZipFile(output, "w") as archive:
-            archive.writestr("survey.csv", 'EndDate\nEnd Date\n"{""ImportId"":""endDate"",""timeZone"":""America/New_York""}"\n2026-09-01 12:30:00\n')
+            archive.writestr(
+                "survey.csv",
+                'EndDate,Finished\n'
+                'End Date,Finished\n'
+                '"{""ImportId"":""endDate"",""timeZone"":""America/New_York""}",'
+                '"{""ImportId"":""finished""}"\n'
+                '2026-09-01 12:30:00,1\n'
+                '2026-09-02 12:00:00,0\n',
+            )
         session = Session([
             Response(data={"result": {"progressId": "P1", "status": "inProgress"}}),
             Response(data={"result": {"fileId": "F1", "status": "complete"}}),
@@ -39,7 +47,8 @@ class QualtricsTests(unittest.TestCase):
         self.assertEqual(session.calls[0][2]["json"], {
             "format": "csv",
             "compress": True,
-            "surveyMetadataIds": ["endDate"],
+            "exportResponsesInProgress": False,
+            "surveyMetadataIds": ["endDate", "finished"],
             "questionIds": [],
             "embeddedDataIds": [],
             "timeZone": "America/New_York",

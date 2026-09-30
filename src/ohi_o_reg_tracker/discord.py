@@ -19,25 +19,32 @@ def send(report, webhook_url, *, session=None):
             "────────────────",
         ]
     )
+    marion = getattr(report, "marion", None)
+    professionals = getattr(report, "professionals", None)
+    if marion is not None and professionals is not None:
+        content += f"\n-# Marion: {marion} | Professional: {professionals}"
     payload = {"content": content}
     files = {"file": ("registration.png", report.png, "image/png")}
-    response = session.post(
-        webhook_url,
-        data={"payload_json": json.dumps(payload)},
-        files=files,
-        timeout=(10, 30),
-    )
-    if response.status_code == 429:
-        try:
-            delay = min(float(response.json().get("retry_after", 1)), 30)
-        except (ValueError, TypeError):
-            delay = 1
-        time.sleep(delay)
+    try:
         response = session.post(
             webhook_url,
             data={"payload_json": json.dumps(payload)},
             files=files,
             timeout=(10, 30),
         )
-    response.raise_for_status()
+        if response.status_code == 429:
+            try:
+                delay = min(float(response.json().get("retry_after", 1)), 30)
+            except (ValueError, TypeError):
+                delay = 1
+            time.sleep(delay)
+            response = session.post(
+                webhook_url,
+                data={"payload_json": json.dumps(payload)},
+                files=files,
+                timeout=(10, 30),
+            )
+        response.raise_for_status()
+    except requests.RequestException:
+        raise RuntimeError("Discord delivery failed") from None
     logger.info("Discord report sent")
