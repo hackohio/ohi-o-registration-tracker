@@ -2,7 +2,7 @@ import threading
 import unittest
 from datetime import date
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from ohi_o_reg_tracker import report
 
@@ -86,6 +86,45 @@ class ReportTests(unittest.TestCase):
             7: 2, 6: 2, 5: 2, 4: 3,
         })
         self.assertEqual(chart_args["historical"], history)
+
+    def test_mixed_provider_streams_use_the_selected_source(self):
+        event = SimpleNamespace(
+            key="mixed", name="Mixed event", event_date=date(2026, 10, 24),
+            timezone="America/Detroit", participant_survey_id=None,
+            participant_apps_script_url="https://script.google.com/macros/s/p/exec",
+            leader_survey_id="SV_leaders", history=SimpleNamespace(aggregate_output="history.csv", label="2025"),
+        )
+        settings = SimpleNamespace(base_url="https://example.test", api_key="q-key",
+                                   sheets_api_secret="s-key", event=event)
+        with patch.object(report, "load_aggregate", return_value={}), \
+                patch.object(report.apps_script, "fetch_timestamps", return_value=["2026-09-01 12:00:00"]) as sheets, \
+                patch.object(report.qualtrics, "export_end_dates", return_value=["2026-09-02 12:00:00"]) as qualtrics, \
+                patch.object(report.charts, "make_chart", return_value=b"png"):
+            result = report.build(settings, today=date(2026, 9, 8), session=object())
+        self.assertEqual((result.participants, result.leaders), (1, 1))
+        sheets.assert_called_once_with(
+            event.participant_apps_script_url, secret="s-key", stream="participants",
+            timezone="America/Detroit", session=ANY,
+        )
+        qualtrics.assert_called_once()
+
+    def test_both_sheets_streams_are_counted(self):
+        event = SimpleNamespace(
+            key="sheets", name="Sheets event", event_date=date(2026, 10, 24),
+            timezone="America/Detroit", participant_survey_id=None, leader_survey_id=None,
+            participant_apps_script_url="https://script.google.com/macros/s/p/exec",
+            leader_apps_script_url="https://script.google.com/macros/s/l/exec",
+            history=SimpleNamespace(aggregate_output="history.csv", label="2025"),
+        )
+        settings = SimpleNamespace(sheets_api_secret="s-key", event=event)
+        def fetch(url, *, stream, **kwargs):
+            return ["2026-09-01 12:00:00"] * (2 if stream == "participants" else 3)
+        with patch.object(report, "load_aggregate", return_value={}), \
+                patch.object(report.apps_script, "fetch_timestamps", side_effect=fetch) as sheets, \
+                patch.object(report.charts, "make_chart", return_value=b"png"):
+            result = report.build(settings, today=date(2026, 9, 8), session=object())
+        self.assertEqual((result.participants, result.leaders), (2, 3))
+        self.assertEqual([call.kwargs["stream"] for call in sheets.call_args_list], ["participants", "leaders"])
 
     def test_professional_timeline_is_kept_when_participant_export_is_empty(self):
         event = SimpleNamespace(

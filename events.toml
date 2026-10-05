@@ -21,3 +21,18 @@ aggregate_output = "history/hack-2025.csv"
 [[events.hack.history.participant_trends]]
 label = "2024"
 aggregate_output = "history/hack-2024-participants.csv"
+
+# Production Apps Script endpoints for the two registration timestamp streams.
+[events.highschool]
+name = "HighSchool OHI/O"
+event_date = 2026-11-15
+timezone = "America/Detroit"
+participant_apps_script_url = "https://script.google.com/macros/s/AKfycbzqPE7Blz4phX4IJVy4Xdjb0u0L9zCj-o9xNrH5C7mlsBdShO4FKO2aI2irTY5C4AcNFQ/exec"
+leader_apps_script_url = "https://script.google.com/macros/s/AKfycbzqPE7Blz4phX4IJVy4Xdjb0u0L9zCj-o9xNrH5C7mlsBdShO4FKO2aI2irTY5C4AcNFQ/exec"
+
+[events.highschool.history]
+label = "2025"
+event_date = 2025-11-23
+participants_input = "private/hs25participants.csv"
+leaders_input = "private/hs25leaders.csv"
+aggregate_output = "history/highschool-2025.csv"

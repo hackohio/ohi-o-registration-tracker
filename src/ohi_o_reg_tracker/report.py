@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import logging
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
-from . import charts, qualtrics
+from . import apps_script, charts, qualtrics
 from .registrations import load_aggregate, load_participant_aggregate, timeline
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,31 @@ def _run_parallel(calls, *, session):
         return [future.result() for future in futures]
 
 
+def fetch_timestamps(settings, stream, *, session=None):
+    event = settings.event
+    survey_id = getattr(event, f"{stream}_survey_id", None)
+    script_url = getattr(event, f"{stream}_apps_script_url", None)
+    if survey_id is not None:
+        return qualtrics.export_end_dates(
+            survey_id,
+            base_url=settings.base_url,
+            api_key=settings.api_key,
+            timezone=event.timezone,
+            session=session,
+        )
+    return apps_script.fetch_timestamps(
+        script_url,
+        secret=settings.sheets_api_secret,
+        stream="participants" if stream == "participant" else "leaders",
+        timezone=event.timezone,
+        session=session,
+    )
+
+
+def _source_name(settings, stream):
+    return "Qualtrics" if getattr(settings.event, f"{stream}_survey_id", None) is not None else "Google Sheets"
+
+
 def build(settings, *, today=None, session=None):
     event = settings.event; today = today or datetime.now(ZoneInfo(event.timezone)).date()
     if today > event.event_date: raise ValueError(f"{event.key}: event has ended")
@@ -55,10 +80,13 @@ def build(settings, *, today=None, session=None):
         for label, path in getattr(event.history, "participant_trends", ())
     })
     historical_values = historical.get(point, ("Reg was not open", "Reg was not open"))
-    logger.info("Requesting Qualtrics registration exports")
+    logger.info(
+        "Requesting registration timestamps (%s)",
+        ", ".join(dict.fromkeys(_source_name(settings, stream) for stream in ("participant", "leader"))),
+    )
     export_calls = [
-        lambda: qualtrics.export_end_dates(event.participant_survey_id, base_url=settings.base_url, api_key=settings.api_key, timezone=event.timezone, session=session),
-        lambda: qualtrics.export_end_dates(event.leader_survey_id, base_url=settings.base_url, api_key=settings.api_key, timezone=event.timezone, session=session),
+        lambda: fetch_timestamps(settings, "participant", session=session),
+        lambda: fetch_timestamps(settings, "leader", session=session),
     ]
     if has_professional_counts:
         export_calls.insert(
@@ -91,7 +119,7 @@ def build(settings, *, today=None, session=None):
             session=session,
         )
     logger.info(
-        "Report counts from response exports: participants=%d, leaders=%d%s",
+        "Registration counts from sources: participants=%d, leaders=%d%s",
         participant_count,
         leader_count,
         f", professionals={professional_count}, Marion={marion_count}" if has_professional_counts else "",

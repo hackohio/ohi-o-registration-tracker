@@ -3,6 +3,16 @@ on:
   repository_dispatch:
     types: [registration-report]
   workflow_dispatch:
+    inputs:
+      events:
+        description: Which reports to send
+        required: true
+        type: choice
+        options:
+          - Both
+          - Hack only
+          - HS only
+        default: Both
 permissions:
   contents: read
 jobs:
@@ -10,14 +20,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - event: hack
-            webhook_secret: HACKOHIO_DISCORD_WEBHOOK_URL
+        event: ${{ fromJSON(inputs.events == 'Hack only' && '["hack"]' || inputs.events == 'HS only' && '["highschool"]' || '["hack","highschool"]') }}
     runs-on: ubuntu-latest
     env:
       MPLBACKEND: Agg
       QUALTRICS_API_KEY: ${{ secrets.QUALTRICS_API_KEY }}
-      DISCORD_WEBHOOK_URL: ${{ secrets[matrix.webhook_secret] }}
+      DISCORD_WEBHOOK_URL: ${{ secrets[matrix.event == 'hack' && 'HACKOHIO_DISCORD_WEBHOOK_URL' || 'HSIO_DISCORD_WEBHOOK_URL'] }}
+      GOOGLE_SHEETS_API_SECRET: ${{ matrix.event == 'highschool' && secrets.HSIO_SHEETS_API_SECRET || '' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v5

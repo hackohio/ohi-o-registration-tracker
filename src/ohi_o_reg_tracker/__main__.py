@@ -5,7 +5,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 from .config import load_events, settings_for, validate_history
 from .registrations import load_aggregate, load_participant_aggregate, read_end_dates, timeline, write_aggregate
-from .report import build
+from .report import build, fetch_timestamps
 from . import charts, discord, qualtrics
 
 def _run_parallel(calls):
@@ -35,7 +35,7 @@ def main(argv=None):
             today = datetime.now(ZoneInfo(event.timezone)).date()
             has_professional_counts = event.professional_survey_id is not None
             export_calls = [
-                lambda: qualtrics.export_end_dates(event.participant_survey_id, base_url=settings.base_url, api_key=settings.api_key, timezone=event.timezone),
+                lambda: fetch_timestamps(settings, "participant"),
             ]
             if has_professional_counts:
                 export_calls.append(
@@ -82,7 +82,7 @@ def main(argv=None):
                 participant_histories=participant_histories,
             ))
             breakdown = f"; Marion: {marion_count}; Professional: {professional_current}" if has_professional_counts else ""
-            print(f"Participants: {participant_count}{breakdown}; exported responses: {len(participant_timestamps)}; chart: {output}"); return 0
+            print(f"Participants: {participant_count}{breakdown}; source timestamps: {len(participant_timestamps)}; chart: {output}"); return 0
         result = build(settings)
         if args.dry_run:
             output = Path("artifacts") / f"{args.event}.png"; output.parent.mkdir(exist_ok=True); output.write_bytes(result.png)
