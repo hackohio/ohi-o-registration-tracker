@@ -128,7 +128,7 @@ def _retry_delay(response, deadline):
     time.sleep(min(delay, remaining))
 
 
-def fetch_timestamps(url, *, secret, stream, timezone, session=None, deadline=25):
+def fetch_timestamps(url, *, secret, stream, timezone, session=None, deadline=60):
     """Fetch and validate local timestamps from one Apps Script stream."""
     if not _safe_google_url(url):
         raise AppsScriptError("Apps Script endpoint URL is invalid")

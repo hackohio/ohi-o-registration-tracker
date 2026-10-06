@@ -131,7 +131,7 @@ class AppsScriptTests(unittest.TestCase):
         session = Session([Response(payload={
             "ok": True, "stream": "participants", "timezone": "America/Detroit", "timestamps": [],
         })])
-        with patch("ohi_o_reg_tracker.apps_script.time.monotonic", side_effect=[0, 0, 26]):
+        with patch("ohi_o_reg_tracker.apps_script.time.monotonic", side_effect=[0, 0, 61]):
             with self.assertRaisesRegex(AppsScriptError, "deadline"):
                 self.fetch(session)
         with self.assertRaisesRegex(AppsScriptError, "URL"):
