@@ -83,6 +83,20 @@ marion_quota_id = "bad-quota"
 
             self.assertIsNone(settings.event.professional_survey_id)
             self.assertIsNone(settings.event.marion_quota_id)
+            self.assertFalse(settings.event.history.exclude_after_event)
+
+    def test_history_can_opt_into_excluding_after_event_rows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = self._write_config(directory)
+            text = config.read_text(encoding="utf-8").replace(
+                'event_date = 2025-10-26\n',
+                'event_date = 2025-10-25\nexclude_after_event = true\n',
+            )
+            config.write_text(text, encoding="utf-8")
+
+            _, events = load_events(config)
+
+            self.assertTrue(events["demo"].history.exclude_after_event)
 
     def _write_sheets_config(self, directory, participant_source, leader_source, *, qualtrics=""):
         aggregate = Path(directory) / "history.csv"

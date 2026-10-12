@@ -24,6 +24,7 @@ class History:
     leaders_input: Path
     aggregate_output: Path
     participant_trends: tuple[tuple[str, Path], ...] = ()
+    exclude_after_event: bool = False
 
 
 @dataclass(frozen=True)
@@ -86,7 +87,10 @@ def load_events(path="events.toml"):
                 (trend["label"], Path(trend["aggregate_output"]))
                 for trend in h.get("participant_trends", [])
             )
-            history = History(h["label"], _date(h["event_date"], "history.event_date"), Path(h["participants_input"]), Path(h["leaders_input"]), Path(h["aggregate_output"]), participant_trends)
+            exclude_after_event = h.get("exclude_after_event", False)
+            if not isinstance(exclude_after_event, bool):
+                raise ValueError(f"invalid event {key}: history.exclude_after_event must be a boolean")
+            history = History(h["label"], _date(h["event_date"], "history.event_date"), Path(h["participants_input"]), Path(h["leaders_input"]), Path(h["aggregate_output"]), participant_trends, exclude_after_event)
             event = Event(
                 key=key,
                 name=value["name"],

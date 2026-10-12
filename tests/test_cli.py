@@ -108,25 +108,27 @@ class CliTests(unittest.TestCase):
         fetch.assert_called_once_with(settings, "participant")
         self.assertEqual(chart_kwargs["current"][chart_kwargs["today_days_before"]], 2)
 
-    def test_build_history_does_not_need_live_credentials(self):
+    def test_build_history_excludes_after_event_rows_without_live_credentials(self):
         with tempfile.TemporaryDirectory() as directory:
             participant_input = Path(directory) / "participants.csv"
             leader_input = Path(directory) / "leaders.csv"
             aggregate_output = Path(directory) / "history.csv"
-            participant_input.write_text("EndDate\n2025-10-25 12:00:00\n", encoding="utf-8")
-            leader_input.write_text("EndDate\n2025-10-26 12:00:00\n", encoding="utf-8")
+            participant_input.write_text(
+                "EndDate\n2025-10-25 12:00:00\n2025-10-26 12:00:00\n", encoding="utf-8"
+            )
+            leader_input.write_text("EndDate\n2025-10-25 12:00:00\n", encoding="utf-8")
             event = SimpleNamespace(
-                key="highschool", name="HighSchool", event_date=date(2025, 10, 26),
+                key="highschool", name="HighSchool", event_date=date(2025, 10, 25),
                 timezone="America/Detroit",
-                history=SimpleNamespace(event_date=date(2025, 10, 26),
+                history=SimpleNamespace(event_date=date(2025, 10, 25),
                     participants_input=participant_input, leaders_input=leader_input,
-                    aggregate_output=aggregate_output),
+                    aggregate_output=aggregate_output, exclude_after_event=True),
             )
             with patch.dict(os.environ, {}, clear=True), \
                     patch.object(__main__, "load_events", return_value=(None, {"highschool": event})):
                 self.assertEqual(__main__.main(["build-history", "--event", "highschool"]), 0)
             self.assertEqual(aggregate_output.read_text(encoding="utf-8"),
-                "days_before,participants,leaders\n1,1,0\n0,1,1\n")
+                "days_before,participants,leaders\n0,1,1\n")
 
     def test_required_sheets_failure_prevents_discord_delivery(self):
         event = configured_event()

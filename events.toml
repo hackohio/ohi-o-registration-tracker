@@ -13,7 +13,9 @@ leader_survey_id = "SV_cu6KBGCUWxln5DE"
 
 [events.hack.history]
 label = "2025"
-event_date = 2025-10-26
+event_date = 2025-10-25
+# Exclude registrations dated after the opening day from the historical trend.
+exclude_after_event = true
 participants_input = "private/hack25participants.csv"
 leaders_input = "private/hack2025leaders.csv"
 aggregate_output = "history/hack-2025.csv"

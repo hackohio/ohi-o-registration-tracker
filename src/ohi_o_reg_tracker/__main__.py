@@ -25,8 +25,13 @@ def main(argv=None):
         if event is None: raise ValueError(f"unknown event: {args.event}")
         if args.command == "build-history":
             validate_history(event); h = event.history
-            p = timeline(read_end_dates(h.participants_input), h.event_date, event.timezone, today=h.event_date)
-            l = timeline(read_end_dates(h.leaders_input), h.event_date, event.timezone, today=h.event_date)
+            participants = read_end_dates(h.participants_input)
+            leaders = read_end_dates(h.leaders_input)
+            if h.exclude_after_event:
+                participants = [value for value in participants if value.date() <= h.event_date]
+                leaders = [value for value in leaders if value.date() <= h.event_date]
+            p = timeline(participants, h.event_date, event.timezone, today=h.event_date)
+            l = timeline(leaders, h.event_date, event.timezone, today=h.event_date)
             write_aggregate(h.aggregate_output, p, l)
             print(f"{h.aggregate_output} ({len(p)} rows)"); return 0
         settings = settings_for(args.event, participant_only=args.command == "preview-participants")
