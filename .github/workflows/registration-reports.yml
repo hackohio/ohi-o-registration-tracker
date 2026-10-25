@@ -12,7 +12,7 @@ on:
           - Both
           - Hack only
           - HS only
-        default: Both
+        default: HS only
 permissions:
   contents: read
 jobs:
@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        event: ${{ fromJSON(inputs.events == 'Hack only' && '["hack"]' || inputs.events == 'HS only' && '["highschool"]' || '["hack","highschool"]') }}
+        event: ${{ fromJSON(github.event_name == 'repository_dispatch' && '["highschool"]' || inputs.events == 'Hack only' && '["hack"]' || inputs.events == 'HS only' && '["highschool"]' || '["hack","highschool"]') }}
     runs-on: ubuntu-latest
     env:
       MPLBACKEND: Agg

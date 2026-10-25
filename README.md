@@ -59,8 +59,9 @@ uv run python -m ohi_o_reg_tracker report --event KEY --dry-run
 uv run python -m ohi_o_reg_tracker report --event KEY
 ```
 
-The dry run writes `artifacts/KEY.png`. Scheduled repository dispatches run both
-events; manual runs let you choose Both, Hack only, or HS only.
+The dry run writes `artifacts/KEY.png`. Scheduled repository dispatches run the
+HighSchool report only. Manual runs let you choose Both, Hack only, or HS only,
+with HS only selected by default.
 
 Failures are reported by the command and GitHub Actions logs. Rotate credentials
 through the relevant Qualtrics/Discord settings and repository secrets.
@@ -81,9 +82,10 @@ Actions**:
 - `HSIO_SHEETS_API_SECRET` — HighSchool Apps Script secret.
 
 The workflow maps each selected event to its webhook secret and, for HighSchool,
-its Sheets secret. Scheduled dispatches run both events. Manual runs in
-**Actions → Registration reports → Run workflow** offer Both, Hack only, and HS
-only; these send live reports to the selected Discord channel(s).
+its Sheets secret. Scheduled repository dispatches run only the HighSchool
+event. Manual runs in **Actions → Registration reports → Run workflow** offer
+Both, Hack only, and HS only; these send live reports to the selected Discord
+channel(s), with HS only selected by default.
 
 ### Home-server cron
 
